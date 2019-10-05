@@ -1,0 +1,13 @@
+{
+	"moby" : {
+		"api_key"  : "your-mobygames-api-key",
+		"endpoint" : "https://api.mobygames.com/v1"
+	},
+	"storage" : {
+		"sparql_update" : "http://localhost:3030/moby/update",
+		"auth" : {
+			"user"     : "username-with-write-permission",
+			"password" : "12345_like_my_suitcase"
+		}
+	}
+}
