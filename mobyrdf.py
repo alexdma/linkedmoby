@@ -7,18 +7,25 @@ Created on 17 Sep 2019
 import time
 
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
-from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS
+from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, XSD
 from rdflib.namespace import FOAF, DCTERMS, SKOS
 import requests
 from requests.auth import HTTPBasicAuth
 
-from config import config as cfg
+from config import args, config as cfg
 from rdf_factories import Gaming, VGO
 import rdf_factories as maker
 
 API_KEY = cfg['moby']['api_key']
 ENDPOINT = cfg['moby']['endpoint']
 API_STEP = 100
+
+REQ_RATE = cfg['moby']['rate']
+print('HTTP request rate is set to {} requests per second'.format(REQ_RATE))
+if REQ_RATE > 0.1 : print('[WARN] HTTP request rate is set to ' + str(REQ_RATE) + 
+                          ', which is above the 0.1 limit (one request every ten seconds) set by MobyGames.' + 
+                          ' If you do not have special access permissions, your client could be throttled or banned.')
+
 DUL = Namespace('http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#')
 LDMoby = Namespace('http://data.datascienceinstitute.ie/mobygames/')
 
@@ -39,6 +46,13 @@ genre_mappings = {
     14 : { "property" : Gaming.is_addon_type, "class" : Gaming.AddonType, "shorthand" : "addon_type" },
     15 : { "property" : Gaming.is_edition, "class" : Gaming.EditionType, "shorthand" : "edition" }
 }
+
+
+def moby_uri(moby_id, short_type, name=None):
+    u = LDMoby
+    u += short_type + '/'
+    u += str(moby_id) if moby_id else name.lower().replace(' ', '_')
+    return maker.preprocess(u)
 
 
 def write(nt):
@@ -72,16 +86,16 @@ def RateLimited(maxPerSecond):
     return decorate
 
 
-@RateLimited(0.1)  # One in ten seconds
+@RateLimited(REQ_RATE)  # One in ten seconds
 def callMoby(resource, auth, filename=None):
     print('calling ' + resource)
     response = requests.get('/'.join((ENDPOINT, resource)), auth=auth)
     return response.json()
 
 
-def games(details=False):
+def games(details=False, start_page=0):
     lastNoRes = 1
-    page = 0
+    page = start_page
     auth = HTTPBasicAuth(API_KEY, '')
     key = 'games'
     path = key
@@ -100,11 +114,32 @@ def games(details=False):
                 game = maker.game(graph, guri, g['title'])      
                 if 'description' in g :
                     graph.add((game, DCTERMS.description, Literal(g['description'], datatype=RDF.HTML)))
+                if 'moby_url' in g :
+                    graph.add((game, RDFS.seeAlso, Literal(g['moby_url'], datatype=XSD.anyURI)))
+                if 'official_url' in g and g['official_url'] :
+                    home = URIRef(g['official_url'].strip())
+                    graph.add((game, FOAF.homepage, home))
+                    graph.add((home, RDF.type, FOAF.Document))
+                if 'platforms' in g :
+                    for gp in g['platforms']:
+                        gameplat = URIRef(guri + '/platform/' + str(gp['platform_id']))
+                        plat, splat = moby_uri(str(gp['platform_id']), 'platform', gp['platform_name'])
+                        graph.add((gameplat, RDF.type, Gaming.GamePlatformVersion))
+                        graph.add((gameplat, RDFS.label, Literal(g['title'] + ' on ' + gp['platform_name'], lang='en')))
+                        graph.add((gameplat, Gaming.game, game))
+                        graph.add((gameplat, Gaming.platform, plat))
+                        if 'first_release_date' in gp and gp['first_release_date']:
+                            graph.add((gameplat, DCTERMS.date, Literal(gp['first_release_date'], datatype=XSD.date)))
         else :
             for gid in json[key] :
                 guri = LDMoby + 'game/' + str(gid)
-                game = maker.game(graph, guri, g['title'])  
-        write (graph.serialize(format='ntriples').decode('UTF-8'))
+                game = maker.game(graph, guri, g['title'])
+        try:
+            nt = graph.serialize(format='ntriples').decode('UTF-8')
+            write (nt)
+        except Exception as e:
+            print(graph)
+            raise e
 
 
 def genres():
@@ -137,12 +172,15 @@ def genres():
         write (graph.serialize(format='ntriples').decode('UTF-8'))
 
 
-def groups():
-    """
-    Genres in MobyGames encode more than just genres
+def groups(start_page=0):
+    """Extracts information of MobyGames groups
+
+    Args:
+        start_id: the first page offset to start from.
+            Defaults to 0
     """
     lastNoRes = 1
-    page = 0
+    page = start_page
     auth = HTTPBasicAuth(API_KEY, '')
     key = 'groups'
     while lastNoRes > 0 and lastNoRes <= API_STEP:
@@ -153,12 +191,13 @@ def groups():
             print(json)
         lastNoRes = len(json[key])
         print('page {} : {} {}'.format(page, lastNoRes, key))
+        # General group data
         graph = Graph()
         for p in json[key] :
             guri = LDMoby + 'game_group/' + str(p['group_id'])
             group = maker.group(graph, guri, p["group_name"], p["group_description"])
         write (graph.serialize(format='ntriples').decode('UTF-8'))
-        # Now games in the group
+        # Data for group member games
         for p in json[key] :
             lastNoResGiG = 1
             pageGiG = 0
@@ -197,11 +236,10 @@ def platforms():
             graph.add((platform, RDF.type, tPlatform))
             graph.add((platform, RDFS.label, Literal(p['platform_name'], lang='en')))
             graph.add((platform, FOAF.name, Literal(p['platform_name'])))
-        write (graph.serialize(format='ntriples').decode('UTF-8'))
+        write (graph.serialize(format='ntriples').decode('UTF-8'))      
 
             
 platforms()
 genres()
-# groups()
-games(True)
-groups()
+games(details=True, start_page=args.page)
+groups(start_page=args.page)

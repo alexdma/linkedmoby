@@ -5,7 +5,7 @@ Created on 2 Oct 2019
 
 '''
 from rdflib import Literal, Namespace, OWL, RDF, RDFS, URIRef, XSD
-from rdflib.namespace import DCTERMS, SKOS
+from rdflib.namespace import DCTERMS, FOAF, SKOS
 
 CRM = Namespace('http://erlangen-crm.org/current/')
 Gaming = Namespace('http://data.datascienceinstitute.ie/ont/gaming/term/')
@@ -48,7 +48,27 @@ def group(graph, uri, name, description=None):
 	return group
 
 
+def platform(graph, uri, name) :
+	plat, splat = preprocess(uri)
+	tPlatform = Gaming.GamingPlatform
+	graph.add((plat, RDF.type, tPlatform))
+	graph.add((plat, RDFS.label, Literal(name, lang='en')))
+	graph.add((plat, FOAF.name, Literal(name)))
+	return plat
+
+
 def preprocess(uri_obj):
+	"""
+	Takes an URI and generates a URIRef representation as well as a string 
+	representation of it, which may be useful for making other URIs from it.
+
+	Arguments:
+		uri_obj {string or URIRef} -- the given URI for the RDF resource
+
+	Returns:
+		URIRef -- an actionable RDF resource
+		string -- the string representation of the URIRef
+	"""
 	if isinstance(uri_obj, URIRef) :
 		sgame = str(uri_obj)
 		game = uri_obj

@@ -1,0 +1,9 @@
+# Python generated files
+  
+.project
+.pydevproject
+__pycache__/
+
+# Sensitive data
+config.json
+~                 
