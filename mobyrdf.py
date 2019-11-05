@@ -93,6 +93,23 @@ def callMoby(resource, auth, filename=None):
     return response.json()
 
 
+def match_wikidata(graph, game_map): 
+    query = """SELECT DISTINCT ?game ?wd WHERE { VALUES( ?game ?slug) {"""
+    for row in game_map:
+        slug = row['moby_url'].rsplit('/', 1)[-1]
+        query += """ ( <{}> "{}" )""".format(row['uri'], slug)
+    query += """ } ?wd <http://www.wikidata.org/prop/direct/P1933> ?slug"""
+    query += """ }"""
+    wdsparql = SPARQLWrapper('https://query.wikidata.org/sparql')
+    wdsparql.method = 'POST'
+    wdsparql.setQuery(query)
+    wdsparql.setReturnFormat(JSON)
+    results = wdsparql.query().convert()
+    for bind in results['results']['bindings']:
+        graph.add(( URIRef(bind['game']['value']), SKOS.closeMatch, URIRef(bind['wd']['value']) ))
+    return graph
+
+
 def games(details=False, start_page=0):
     lastNoRes = 1
     page = start_page
@@ -108,6 +125,7 @@ def games(details=False, start_page=0):
         lastNoRes = len(json[key])
         print('page {} : {} {}'.format(page, lastNoRes, key))
         graph = Graph()
+        id_map = []
         if details:
             for g in json[key] :
                 guri = LDMoby + 'game/' + str(g["game_id"])
@@ -116,6 +134,7 @@ def games(details=False, start_page=0):
                     graph.add((game, DCTERMS.description, Literal(g['description'], datatype=RDF.HTML)))
                 if 'moby_url' in g :
                     graph.add((game, RDFS.seeAlso, Literal(g['moby_url'], datatype=XSD.anyURI)))
+                    id_map.append( { 'uri': guri, 'moby_url' : g['moby_url'] } )
                 if 'official_url' in g and g['official_url'] :
                     home = URIRef(g['official_url'].strip())
                     graph.add((game, FOAF.homepage, home))
@@ -134,6 +153,8 @@ def games(details=False, start_page=0):
             for gid in json[key] :
                 guri = LDMoby + 'game/' + str(gid)
                 game = maker.game(graph, guri, g['title'])
+        if id_map:
+            match_wikidata(graph, id_map)
         try:
             nt = graph.serialize(format='ntriples').decode('UTF-8')
             write (nt)
@@ -239,7 +260,7 @@ def platforms():
         write (graph.serialize(format='ntriples').decode('UTF-8'))      
 
             
-platforms()
-genres()
+#platforms()
+#genres()
 games(details=True, start_page=args.page)
 groups(start_page=args.page)

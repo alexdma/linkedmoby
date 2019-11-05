@@ -10,6 +10,7 @@ Please do NOT contact us to ask for the data or a MobyGames API key: contact Sim
 
 ## Features
 * Extraction of data on games, game groups, platforms and genres
+* Reverse linking with Wikidata
 * Writing to SPARQL endpoints, even if behind Basic HTTP Authentication.
 
 ## Requirements
