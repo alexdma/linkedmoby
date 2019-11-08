@@ -5,7 +5,7 @@ Created on 16 Oct 2019
 
 '''
 
-from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
+from SPARQLWrapper import SPARQLWrapper
 
 
 def write(graph, update_endpoint, user=None, pw=None):

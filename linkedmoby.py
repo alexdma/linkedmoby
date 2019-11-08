@@ -4,30 +4,38 @@ Created on 17 Sep 2019
 @author: alexdma@apache.org
 
 '''
-import time
+import logging, requests, time
 
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
 from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, XSD
 from rdflib.namespace import FOAF, DCTERMS, SKOS
-import requests
 from requests.auth import HTTPBasicAuth
 
-from config import args, config as cfg
-from rdf_factories import Gaming, VGO
-import rdf_factories as maker
+from rdf.config import args, config as cfg
+from rdf.factories import Gaming, VGO
+import rdf.factories as maker
+
+FORMAT = '[%(levelname)s] %(asctime)s. %(message)s'
+logging.basicConfig(format=FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger('dsidata')
+logger.setLevel(logging.DEBUG)
 
 API_KEY = cfg['moby']['api_key']
 ENDPOINT = cfg['moby']['endpoint']
 API_STEP = 100
-
 REQ_RATE = cfg['moby']['rate']
-print('HTTP request rate is set to {} requests per second'.format(REQ_RATE))
-if REQ_RATE > 0.1 : print('[WARN] HTTP request rate is set to ' + str(REQ_RATE) + 
-                          ', which is above the 0.1 limit (one request every ten seconds) set by MobyGames.' + 
-                          ' If you do not have special access permissions, your client could be throttled or banned.')
-
 DUL = Namespace('http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#')
-LDMoby = Namespace('http://data.datascienceinstitute.ie/mobygames/')
+LDMoby = Namespace(cfg['rdf']['prefix'] if cfg['rdf']['prefix'] else 'http://example.org/linkedmoby/')
+
+print('Using RDF prefix for data: ' + LDMoby)
+print('Extracting data of types: ' + str(args.types))
+if 'all' in args.types and len(args.types) > 1 : 
+    logger.warning("Value 'all' explicitly declared, takes precedence.")
+print('HTTP request rate is set to {} requests per second'.format(REQ_RATE))
+if REQ_RATE > 0.1 : 
+    logger.warning("HTTP request rate is set to %s" + 
+                                ", which is above the 0.1 limit (one request every ten seconds) set by MobyGames.", REQ_RATE)
+    logger.warning("If you do not have special access permissions, your client could be throttled or banned.")
 
 genre_mappings = {
      1 : { "property" : VGO.has_game_genre, "class" : VGO.Genre, "shorthand" : "genre" },
@@ -86,7 +94,7 @@ def RateLimited(maxPerSecond):
     return decorate
 
 
-@RateLimited(REQ_RATE)  # One in ten seconds
+@RateLimited(REQ_RATE)  # Default is one in ten seconds
 def callMoby(resource, auth, filename=None):
     print('calling ' + resource)
     response = requests.get('/'.join((ENDPOINT, resource)), auth=auth)
@@ -104,9 +112,13 @@ def match_wikidata(graph, game_map):
     wdsparql.method = 'POST'
     wdsparql.setQuery(query)
     wdsparql.setReturnFormat(JSON)
-    results = wdsparql.query().convert()
-    for bind in results['results']['bindings']:
-        graph.add(( URIRef(bind['game']['value']), SKOS.closeMatch, URIRef(bind['wd']['value']) ))
+    try:
+        results = wdsparql.query().convert()
+        for bind in results['results']['bindings']:
+            graph.add((URIRef(bind['game']['value']), SKOS.closeMatch, URIRef(bind['wd']['value'])))
+    except Exception as e:
+        logger.error('Failed check for Wikidata link: ' + str(e))
+        logger.error('Query was: %s', query)
     return graph
 
 
@@ -134,7 +146,7 @@ def games(details=False, start_page=0):
                     graph.add((game, DCTERMS.description, Literal(g['description'], datatype=RDF.HTML)))
                 if 'moby_url' in g :
                     graph.add((game, RDFS.seeAlso, Literal(g['moby_url'], datatype=XSD.anyURI)))
-                    id_map.append( { 'uri': guri, 'moby_url' : g['moby_url'] } )
+                    id_map.append({ 'uri': guri, 'moby_url' : g['moby_url'] })
                 if 'official_url' in g and g['official_url'] :
                     home = URIRef(g['official_url'].strip())
                     graph.add((game, FOAF.homepage, home))
@@ -259,8 +271,9 @@ def platforms():
             graph.add((platform, FOAF.name, Literal(p['platform_name'])))
         write (graph.serialize(format='ntriples').decode('UTF-8'))      
 
-            
-#platforms()
-#genres()
-games(details=True, start_page=args.page)
-groups(start_page=args.page)
+
+allt = 'all' in args.types         
+if allt or 'platform' in args.types: platforms()
+if allt or 'genre' in args.types: genres()
+if allt or 'game' in args.types: games(details=True, start_page=args.page)
+if allt or 'group' in args.types: groups(start_page=args.page)

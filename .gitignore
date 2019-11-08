@@ -1,9 +1,39 @@
-# Python generated files
-  
+######################
+# OS Files
+######################
+
+# OS X #
+.DS_Store
+
+
+######################
+# Build files
+######################
+
+# setuptools #
+__pycache__/
+build/
+dist/
+*.egg-info
+*.pyc
+
+# Eclipse #   
 .project
 .pydevproject
-__pycache__/
 
+
+######################
+# Generated files
+######################
+
+# application #
+out
+
+
+######################
 # Sensitive data
+######################
+
+# Configurations #
 config.json
 ~                 

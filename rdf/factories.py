@@ -4,7 +4,7 @@ Created on 2 Oct 2019
 @author: alexdma@apache.org
 
 '''
-from rdflib import Literal, Namespace, OWL, RDF, RDFS, URIRef, XSD
+from rdflib import Literal, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import DCTERMS, FOAF, SKOS
 
 CRM = Namespace('http://erlangen-crm.org/current/')

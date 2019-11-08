@@ -1,12 +1,15 @@
 {
-	"moby" : {
-		"api_key"  : "your-mobygames-api-key",
-		"endpoint" : "https://api.mobygames.com/v1",
-		"rate"     : 0.1
+	"moby": {
+		"api_key" : "your-mobygames-api-key",
+		"endpoint": "https://api.mobygames.com/v1",
+		"rate"    : 0.1
 	},
-	"storage" : {
-		"sparql_update" : "http://localhost:3030/moby/update",
-		"auth" : {
+	"rdf": {
+		"prefix": "http://example.org/linkedmoby/data/"
+	},
+	"storage": {
+		"sparql_update": "http://localhost:3030/linkedmoby/update",
+		"auth": {
 			"user"     : "username-with-write-permission",
 			"password" : "12345_like_my_suitcase"
 		}
