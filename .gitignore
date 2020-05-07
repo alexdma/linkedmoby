@@ -17,7 +17,10 @@ dist/
 *.egg-info
 *.pyc
 
-# Eclipse #   
+# pyenv #
+.python-version
+
+# Eclipse/PyDev #   
 .project
 .pydevproject
 

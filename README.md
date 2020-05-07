@@ -4,7 +4,7 @@
 
 Tools to build an RDF dataset out of the MobyGames database, http://mobygames.com/
 
-You are free to use and redistribute this tool under the terms of the [License](LICENSE). However, you are __not allowed__ to redistribute the data generated using this tool unless otherwise authorised by MobyGames.
+You are free to use, modify and redistribute this tool under the terms of the [License](LICENSE). However, you are __not permitted__ to redistribute the data generated using this tool unless otherwise authorised by MobyGames.
 
 Please do __NOT__ contact us asking for the data or for a MobyGames API key: contact Simon Carless and the other MG folks instead, they're really nice guys.
 
@@ -23,7 +23,7 @@ Please do __NOT__ contact us asking for the data or for a MobyGames API key: con
 2. `python setup.py install` or `pip install -r requirements.txt`
 
 ## Running
-1. Create a `config.js` file where the `config.sample.js` resides and complete it accordingly (especially by filling in the MobyGames API key and SPARQL UPDATE endpoint).
+1. Create a `config.json` file where the `config.sample.json` resides and complete it accordingly (especially by filling in the MobyGames API key and SPARQL UPDATE endpoint).
 2. `python linkedmoby.py`
 
-For additional options, check `python linkedmoby.py -h`.
+For additional options, check the output of `python linkedmoby.py -h`.

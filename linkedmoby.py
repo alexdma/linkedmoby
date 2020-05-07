@@ -5,14 +5,15 @@ Created on 17 Sep 2019
 
 '''
 import logging, requests, time
+from urllib.error import HTTPError
 
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
-from rdflib import Graph, Literal, Namespace, URIRef, RDF, RDFS, XSD
+from rdflib import Graph, Literal, URIRef, RDF, RDFS, XSD
 from rdflib.namespace import FOAF, DCTERMS, SKOS
 from requests.auth import HTTPBasicAuth
 
 from rdf.config import args, config as cfg
-from rdf.factories import Gaming, VGO
+from rdf.factories import LDMoby, Gaming, genre_mappings
 import rdf.factories as maker
 
 FORMAT = '[%(levelname)s] %(asctime)s. %(message)s'
@@ -24,36 +25,16 @@ API_KEY = cfg['moby']['api_key']
 ENDPOINT = cfg['moby']['endpoint']
 API_STEP = 100
 REQ_RATE = cfg['moby']['rate']
-DUL = Namespace('http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#')
-LDMoby = Namespace(cfg['rdf']['prefix'] if cfg['rdf']['prefix'] else 'http://example.org/linkedmoby/')
 
 print('Using RDF prefix for data: ' + LDMoby)
 print('Extracting data of types: ' + str(args.types))
 if 'all' in args.types and len(args.types) > 1 : 
-    logger.warning("Value 'all' explicitly declared, takes precedence.")
+    logger.warning("Value 'all' takes precedence over others when declared.")
 print('HTTP request rate is set to {} requests per second'.format(REQ_RATE))
 if REQ_RATE > 0.1 : 
     logger.warning("HTTP request rate is set to %s" + 
                                 ", which is above the 0.1 limit (one request every ten seconds) set by MobyGames.", REQ_RATE)
     logger.warning("If you do not have special access permissions, your client could be throttled or banned.")
-
-genre_mappings = {
-     1 : { "property" : VGO.has_game_genre, "class" : VGO.Genre, "shorthand" : "genre" },
-     2 : { "property" : Gaming.viewable_from_perspective, "class" : Gaming.ViewingPerspective, "shorthand" : "view" },
-     3 : { "property" : Gaming.has_sport, "class" : Gaming.Sport, "shorthand" : "sport" },
-     4 : { "property" : Gaming.has_gameplay_type, "class" : Gaming.Gameplay, "shorthand" : "gameplay" },
-     5 : { "property" : Gaming.has_educational_genre, "class" : VGO.Genre, "shorthand" : "genre_edu" },
-     6 : { "property" : Gaming.has_gameplay_feature, "class" : Gaming.GameplayFeature, "shorthand" : "gameplay_feature" },
-     7 : { "property" : Gaming.has_interface, "class" : Gaming.InterfaceType, "shorthand" : "interface" },
-     8 : { "property" : Gaming.is_about, "class" : SKOS.Concept, "shorthand" : "theme" },
-     9 : { "property" : Gaming.has_gameplay_pacing, "class" : Gaming.Pacing, "shorthand" : "pacing" },
-    10 : { "property" : DUL.hasSetting, "class" : DUL.Setting, "shorthand" : "setting" },
-    11 : { "property" : Gaming.has_drivable_vehicle_type, "class" : Gaming.IngameVehicle, "shorthand" : "ingame_vehicle" },
-    12 : { "property" : Gaming.presented_visually, "class" : Gaming.VisualPresentation, "shorthand" : "visual" },
-    13 : { "property" : Gaming.has_artistic_style, "class" : Gaming.ArtStyle, "shorthand" : "art_style" },
-    14 : { "property" : Gaming.is_addon_type, "class" : Gaming.AddonType, "shorthand" : "addon_type" },
-    15 : { "property" : Gaming.is_edition, "class" : Gaming.EditionType, "shorthand" : "edition" }
-}
 
 
 def moby_uri(moby_id, short_type, name=None):
@@ -96,7 +77,7 @@ def RateLimited(maxPerSecond):
 
 @RateLimited(REQ_RATE)  # Default is one in ten seconds
 def callMoby(resource, auth, filename=None):
-    print('calling ' + resource)
+    print('calling <{}> ... '.format(resource), end='')
     response = requests.get('/'.join((ENDPOINT, resource)), auth=auth)
     return response.json()
 
@@ -116,7 +97,7 @@ def match_wikidata(graph, game_map):
         results = wdsparql.query().convert()
         for bind in results['results']['bindings']:
             graph.add((URIRef(bind['game']['value']), SKOS.closeMatch, URIRef(bind['wd']['value'])))
-    except Exception as e:
+    except HTTPError as e:
         logger.error('Failed check for Wikidata link: ' + str(e))
         logger.error('Query was: %s', query)
     return graph
@@ -140,12 +121,12 @@ def games(details=False, start_page=0):
         id_map = []
         if details:
             for g in json[key] :
-                guri = LDMoby + 'game/' + str(g["game_id"])
-                game = maker.game(graph, guri, g['title'])      
+                guri = LDMoby + 'game/' + str(g['game_id'])
+                game, gameplay, ui, narrative = maker.game(graph, guri, g['title'])
                 if 'description' in g :
                     graph.add((game, DCTERMS.description, Literal(g['description'], datatype=RDF.HTML)))
                 if 'moby_url' in g :
-                    graph.add((game, RDFS.seeAlso, Literal(g['moby_url'], datatype=XSD.anyURI)))
+                    graph.add((game, FOAF.page, URIRef(g['moby_url'])))
                     id_map.append({ 'uri': guri, 'moby_url' : g['moby_url'] })
                 if 'official_url' in g and g['official_url'] :
                     home = URIRef(g['official_url'].strip())
@@ -156,11 +137,28 @@ def games(details=False, start_page=0):
                         gameplat = URIRef(guri + '/platform/' + str(gp['platform_id']))
                         plat, splat = moby_uri(str(gp['platform_id']), 'platform', gp['platform_name'])
                         graph.add((gameplat, RDF.type, Gaming.GamePlatformVersion))
-                        graph.add((gameplat, RDFS.label, Literal(g['title'] + ' on ' + gp['platform_name'], lang='en')))
+                        graph.add((gameplat, RDFS.label, Literal(f""""{g['title']}" on {gp['platform_name']}""", lang='en')))
                         graph.add((gameplat, Gaming.game, game))
                         graph.add((gameplat, Gaming.platform, plat))
                         if 'first_release_date' in gp and gp['first_release_date']:
                             graph.add((gameplat, DCTERMS.date, Literal(gp['first_release_date'], datatype=XSD.date)))
+                if 'genres' in g :
+                    for ge in g['genres']:
+                        gcdata = genre_mappings[ge['genre_category_id']]
+                        if 'game' == gcdata['subject']:
+                            subject = game
+                        elif 'gameplay' == gcdata['subject']:
+                            subject = gameplay
+                        elif 'ui' == gcdata['subject']:
+                            subject = ui
+                        elif 'narrative' == gcdata['subject']:
+                            subject = narrative
+                        elif 'package' == gcdata['subject']:
+                            subject = game
+                        else:
+                            raise Exception("Cannot handle subject type " + gcdata['subject'])
+                        genre = maker.genre(graph, ge['genre_id'], ge['genre_category_id'], ge['genre_name'], ge['genre_category'])
+                        graph.add((subject, gcdata['property'], genre))
         else :
             for gid in json[key] :
                 guri = LDMoby + 'game/' + str(gid)
@@ -193,14 +191,9 @@ def genres():
         print('page {} : {} {}'.format(page, lastNoRes, key))
         graph = Graph()
         for p in json[key] :
-            cat_id = p["genre_category_id"]
-            if cat_id not in genre_mappings :
-                raise Exception("I didn't know genre {} : {}".format(cat_id, p["genre_category"]))
-            genre = URIRef(LDMoby + genre_mappings[cat_id]['shorthand'] + '/' + str(p['genre_id']))
-            graph.add((genre_mappings[cat_id]['class'], RDFS.label, Literal(p["genre_category"], lang='en')))
-            graph.add((genre, RDF.type, genre_mappings[cat_id]['class']))
-            graph.add((genre, RDFS.label, Literal(p["genre_name"], lang='en')))
-            graph.add((genre, DCTERMS.description, Literal(p["genre_description"], lang='en')))
+            genre = maker.genre(graph, p['genre_id'], p['genre_category_id'],
+                                p['genre_name'], p['genre_category'],
+                                p['genre_description'])
             # The genre category pretty much determines the property
         write (graph.serialize(format='ntriples').decode('UTF-8'))
 
