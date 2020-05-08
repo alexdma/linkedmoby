@@ -23,7 +23,7 @@ Please do __NOT__ contact us asking for the data or for a MobyGames API key: con
 2. `python setup.py install` or `pip install -r requirements.txt`
 
 ## Running
-1. Create a `config.json` file where the `config.sample.json` resides and complete it accordingly (especially by filling in the MobyGames API key and SPARQL UPDATE endpoint).
+1. Create a `config.json` file where the [config.sample.json](config.sample.json) resides and complete it accordingly (especially by filling in the MobyGames API key and SPARQL UPDATE endpoint).
 2. `python linkedmoby.py`
 
 For additional options, check the output of `python linkedmoby.py -h`.

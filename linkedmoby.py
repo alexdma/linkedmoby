@@ -6,6 +6,7 @@ Created on 17 Sep 2019
 '''
 import logging, requests, time
 from urllib.error import HTTPError
+from urllib.parse import urlparse
 
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
 from rdflib import Graph, Literal, URIRef, RDF, RDFS, XSD
@@ -42,6 +43,11 @@ def moby_uri(moby_id, short_type, name=None):
     u += short_type + '/'
     u += str(moby_id) if moby_id else name.lower().replace(' ', '_')
     return maker.preprocess(u)
+
+
+def validate(uri):
+    u = urlparse(uri)
+    return True if u.scheme and u.netloc else False
 
 
 def write(nt):
@@ -126,12 +132,16 @@ def games(details=False, start_page=0):
                 if 'description' in g :
                     graph.add((game, DCTERMS.description, Literal(g['description'], datatype=RDF.HTML)))
                 if 'moby_url' in g :
-                    graph.add((game, FOAF.page, URIRef(g['moby_url'])))
-                    id_map.append({ 'uri': guri, 'moby_url' : g['moby_url'] })
+                    ourl = g['moby_url'].strip()
+                    if validate(ourl):
+                        graph.add((game, FOAF.page, URIRef(ourl)))
+                        id_map.append({ 'uri': guri, 'moby_url' : ourl })
                 if 'official_url' in g and g['official_url'] :
-                    home = URIRef(g['official_url'].strip())
-                    graph.add((game, FOAF.homepage, home))
-                    graph.add((home, RDF.type, FOAF.Document))
+                    ourl = g['official_url'].strip()
+                    if validate(ourl):
+                        home = URIRef(ourl)
+                        graph.add((game, FOAF.homepage, home))
+                        graph.add((home, RDF.type, FOAF.Document))
                 if 'platforms' in g :
                     for gp in g['platforms']:
                         gameplat = URIRef(guri + '/platform/' + str(gp['platform_id']))
@@ -169,7 +179,8 @@ def games(details=False, start_page=0):
             nt = graph.serialize(format='ntriples').decode('UTF-8')
             write (nt)
         except Exception as e:
-            print(graph)
+            # for s,p,o in graph:
+            #    print(f"""{s} {p} {o}""")
             raise e
 
 
