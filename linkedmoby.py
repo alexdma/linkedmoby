@@ -6,7 +6,7 @@ Created on 17 Sep 2019
 '''
 import logging, requests, time
 from urllib.error import HTTPError
-from urllib.parse import urlparse
+from urllib.parse import urldefrag, urlparse
 
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
 from rdflib import Graph, Literal, URIRef, RDF, RDFS, XSD
@@ -47,7 +47,10 @@ def moby_uri(moby_id, short_type, name=None):
 
 def validate(uri):
     u = urlparse(uri)
-    return True if u.scheme and u.netloc else False
+    if not u.scheme or not u.netloc :
+        return False
+    fixed, throwaway = urldefrag(uri)
+    return fixed
 
 
 def write(nt):
@@ -133,12 +136,16 @@ def games(details=False, start_page=0):
                     graph.add((game, DCTERMS.description, Literal(g['description'], datatype=RDF.HTML)))
                 if 'moby_url' in g :
                     ourl = g['moby_url'].strip()
-                    if validate(ourl):
-                        graph.add((game, FOAF.page, URIRef(ourl)))
+                    ourl = validate(ourl)
+                    if ourl:
+                        mpage = URIRef(ourl)
+                        graph.add((game, FOAF.page, mpage))
+                        graph.add((mpage, RDF.type, FOAF.Document))
                         id_map.append({ 'uri': guri, 'moby_url' : ourl })
                 if 'official_url' in g and g['official_url'] :
                     ourl = g['official_url'].strip()
-                    if validate(ourl):
+                    ourl = validate(ourl)
+                    if ourl:
                         home = URIRef(ourl)
                         graph.add((game, FOAF.homepage, home))
                         graph.add((home, RDF.type, FOAF.Document))
