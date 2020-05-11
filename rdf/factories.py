@@ -39,7 +39,7 @@ genre_mappings = {
      4 : { 
 		"property" : Gaming.hasGameplayType,
 		"subject" : "gameplay",
-		"class" : Gaming.Gameplay,
+		"class" : Gaming.GameplayType,
 		"shorthand" : "gameplay" },
      5 : {
 		"property" : Gaming.hasEducationalCapability,

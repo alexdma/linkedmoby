@@ -46,6 +46,8 @@ def moby_uri(moby_id, short_type, name=None):
 
 
 def validate(uri):
+    sep = ' '
+    uri = uri.split(sep, 1)[0]
     u = urlparse(uri)
     if not u.scheme or not u.netloc :
         return False
