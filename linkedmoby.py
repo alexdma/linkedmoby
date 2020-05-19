@@ -267,7 +267,6 @@ def platforms():
     page = 0
     auth = HTTPBasicAuth(API_KEY, '')
     key = 'platforms'
-    tPlatform = URIRef(LDMoby + 'term/' + 'GamingPlatform')
     while lastNoRes > 0 and lastNoRes <= API_STEP:
         json = callMoby(key + '?offset=' + str(API_STEP * page), auth)
         page += 1
@@ -279,7 +278,7 @@ def platforms():
         graph = Graph()
         for p in json[key] :
             platform = URIRef(LDMoby + 'platform/' + str(p['platform_id']))
-            graph.add((platform, RDF.type, tPlatform))
+            graph.add((platform, RDF.type, Gaming.GamingPlatform))
             graph.add((platform, RDFS.label, Literal(p['platform_name'], lang='en')))
             graph.add((platform, FOAF.name, Literal(p['platform_name'])))
         write (graph.serialize(format='ntriples').decode('UTF-8'))      
