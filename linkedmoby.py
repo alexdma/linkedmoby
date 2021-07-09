@@ -11,11 +11,12 @@ from urllib.parse import urldefrag, urlparse
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
 from rdflib import Graph, Literal, URIRef, RDF, RDFS, XSD
 from rdflib.namespace import FOAF, DCTERMS, SKOS
-from requests.auth import HTTPBasicAuth
 
 from rdf.config import args, config as cfg
 from rdf.factories import LDMoby, Gaming, genre_mappings
 import rdf.factories as maker
+from requests.auth import HTTPBasicAuth
+
 
 FORMAT = '[%(levelname)s] %(asctime)s. %(message)s'
 logging.basicConfig(format=FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
@@ -61,7 +62,8 @@ def write(nt):
 INSERT DATA {{ {nt} }}
 """
     sparql.setQuery(query)
-    sparql.setCredentials(cfg['storage']['auth']['user'], cfg['storage']['auth']['password'])
+    if 'auth' in cfg['storage']:
+        sparql.setCredentials(cfg['storage']['auth']['user'], cfg['storage']['auth']['password'])
     sparql.method = 'POST'
     sparql.query()
 
@@ -182,8 +184,8 @@ def games(details=False, start_page=0):
             for gid in json[key] :
                 guri = LDMoby + 'game/' + str(gid)
                 game = maker.game(graph, guri, g['title'])
-        if id_map:
-            match_wikidata(graph, id_map)
+        #if id_map:
+        #    match_wikidata(graph, id_map)
         try:
             nt = graph.serialize(format='ntriples').decode('UTF-8')
             write (nt)
@@ -253,12 +255,14 @@ def groups(start_page=0):
                 group = maker.group(graph, guri, p["group_name"], p["group_description"])
                 groupJson = callMoby('games?group=' + str(p['group_id']) + "&format=id" + '&offset=' + str(API_STEP * pageGiG), auth)
                 pageGiG += 1
-                lastNoResGiG = len(groupJson['games'])
                 if 'games' in groupJson:
+                    lastNoResGiG = len(groupJson['games'])
                     print('Group {} has {} games left to process.'.format(p['group_id'], len(groupJson['games'])))
                     for game_id in groupJson['games']:
                         game = URIRef(LDMoby + 'game/' + str(game_id))
                         maker.game2group(graph, game, group)
+                else :
+                    lastNoResGiG = 1
                 write (graph.serialize(format='ntriples').decode('UTF-8'))
         
 

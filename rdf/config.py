@@ -2,6 +2,7 @@
 
 import argparse, json
 
+
 parser = argparse.ArgumentParser(description='Extracts MobyGames data and converts them to RDF.')
 parser.add_argument("--config", metavar='C', default='config.json', help='configuration file (default: config.json)')
 parser.add_argument("--page", metavar='P', default=0, type=int, help='starting offset for API calls, applies to games and groups alike (default: 0)')

@@ -2,6 +2,7 @@
 
 from setuptools import setup, find_packages
 
+
 # So you can use either pip or this setup script
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()

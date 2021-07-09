@@ -9,6 +9,7 @@ from rdflib.namespace import DCTERMS, FOAF, SKOS
 
 from rdf.config import config as cfg
 
+
 __all__ = ('CRM', 'DUL', 'Gaming', 'Schema', 'VGO', 'LDMoby',
 		'game', 'game2group', 'genre', 'group', 'platform',
 		'genre_mappings')
