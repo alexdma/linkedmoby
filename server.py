@@ -4,8 +4,8 @@ Created on 9 lug 2021
 @author: alexdma@apache.org
 '''
 from flask import Flask
-from vghub.blueprint import blueprint as vghub
 
+from vghub.blueprint import blueprint as vghub
 
 app = Flask(__name__)
 

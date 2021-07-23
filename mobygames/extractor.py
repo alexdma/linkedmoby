@@ -11,11 +11,12 @@ from urllib.parse import urldefrag, urlparse
 from SPARQLWrapper import SPARQLExceptions, SPARQLWrapper, JSON
 from rdflib import Graph, Literal, URIRef, RDF, RDFS, XSD
 from rdflib.namespace import FOAF, DCTERMS, SKOS
+from requests.auth import HTTPBasicAuth
 
+from mobygames import RateLimited, REQ_RATE, ENDPOINT, API_STEP
 from rdf.config import args, config as cfg
 from rdf.factories import LDMoby, Gaming, genre_mappings
 import rdf.factories as maker
-from requests.auth import HTTPBasicAuth
 
 
 FORMAT = '[%(levelname)s] %(asctime)s. %(message)s'
@@ -24,9 +25,6 @@ logger = logging.getLogger('dsidata')
 logger.setLevel(logging.DEBUG)
 
 API_KEY = cfg['moby']['api_key']
-ENDPOINT = cfg['moby']['endpoint']
-API_STEP = 100
-REQ_RATE = cfg['moby']['rate']
 
 print('Using RDF prefix for data: ' + LDMoby)
 print('Extracting data of types: ' + str(args.types))
@@ -68,24 +66,7 @@ INSERT DATA {{ {nt} }}
     sparql.query()
 
 
-def RateLimited(maxPerSecond):
-    minInterval = 1.0 / float(maxPerSecond)
 
-    def decorate(func):
-        lastTimeCalled = [0.0]
-
-        def rateLimitedFunction(*args, **kargs):
-            elapsed = time.perf_counter() - lastTimeCalled[0]
-            leftToWait = minInterval - elapsed
-            if leftToWait > 0:
-                time.sleep(leftToWait)
-            ret = func(*args, **kargs)
-            lastTimeCalled[0] = time.perf_counter()
-            return ret
-
-        return rateLimitedFunction
-
-    return decorate
 
 
 @RateLimited(REQ_RATE)  # Default is one in ten seconds
