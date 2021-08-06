@@ -1,5 +1,5 @@
 # Extractor tax
-rdflib>=4.2.2
+rdflib>=6.0.0
 requests>=2.20.1
 SPARQLWrapper>=1.8.2
 
